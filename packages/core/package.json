@@ -1,0 +1,13 @@
+{
+  "name": "fetchler",
+  "version": "0.0.1",
+  "description": "Frontend Fetch wrapper in TypeScript",
+  "main": "dist/index.js",
+  "repository": "https://github.com/mawburn/fetchler",
+  "author": "mawburn <mawburn7@gmail.com>",
+  "license": "MIT",
+  "private": false,
+  "devDependencies": {
+    "typescript": "^4.2.2"
+  }
+}
