@@ -27,6 +27,5 @@ module.exports = {
     minimize: true,
     minimizer: [new TerserJSPlugin()],
   },
-  devtool: 'source-map',
   target: 'web',
 }
