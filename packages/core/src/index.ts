@@ -10,7 +10,7 @@ interface ErrorHandlers {
 
 export interface FetchlerOptions extends ErrorHandlers {
   baseUrl?: string
-  token?: string
+  token?: string | null
   tokenType?: string
   customHeaders?: Headers
   defaultInitOptions?: RequestInit
@@ -19,7 +19,6 @@ export interface FetchlerOptions extends ErrorHandlers {
 export default class Fetchler {
   errorHandlers: ErrorHandlers
   headers: Headers
-  token?: string
   customHeaderName?: string
   defaultInitOpts?: RequestInit
   baseUrl: string
@@ -60,9 +59,15 @@ export default class Fetchler {
     }
   }
 
-  private tokenSetter(token: string, tokenType?: string) {
-    this.token =
+  private tokenSetter(token: string | null, tokenType?: string) {
+    if (token === null) {
+      this.headers.delete('Authorization')
+    }
+
+    const authStr =
       tokenType && tokenType.length > 0 ? `${tokenType} ${token}` : token
+
+    this.headers.set('Authorization', authStr)
   }
 
   private async fetchIt(url: string, init: RequestInit, disableAuth: boolean) {
@@ -122,8 +127,21 @@ export default class Fetchler {
     }
   }
 
-  updateToken(token: string, tokenType?: string) {
-    const tokenArr = this.token ? this.token.split(' ') : []
+  clearToken() {
+    this.tokenSetter(null)
+  }
+
+  updateToken(token: string | null, tokenType: string = 'Bearer') {
+    if (token === null) {
+      this.tokenSetter(null)
+      return
+    } else if (!this.headers.has('Authorization')) {
+      this.tokenSetter(token, tokenType)
+      return
+    }
+
+    const authHeader = this.headers.get('Authorization')
+    const tokenArr = authHeader ? authHeader.split(' ') : []
 
     if (tokenArr.length > 1) {
       const newType = tokenArr[0] !== tokenType ? tokenType : tokenArr[0]
