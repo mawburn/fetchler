@@ -24,7 +24,7 @@ export default class Fetchler {
   defaultInitOpts?: RequestInit
   baseUrl: string
 
-  constructor(opts: FetchlerOptions) {
+  constructor(opts?: FetchlerOptions) {
     this.baseUrl = opts.baseUrl ?? ''
 
     this.headers = new Headers()

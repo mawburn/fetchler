@@ -1,13 +1,13 @@
 {
   "name": "fetchler",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "description": "Frontend Fetch wrapper in TypeScript",
   "repository": "https://github.com/mawburn/fetchler",
   "author": "mawburn <mawburn7@gmail.com>",
   "license": "MIT",
   "private": false,
   "scripts": {
-    "public:core": "cd packages/core && yarn publish",
+    "publish:core": "cd packages/core && yarn publish",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "devDependencies": {
