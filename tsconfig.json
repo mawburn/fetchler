@@ -1,18 +1,13 @@
 {
   "compilerOptions": {
     "target": "ES2015",
-    "lib": ["dom", "dom.iterable", "ESNext"],
-    "allowJs": true,
-    "skipLibCheck": true,
-    "esModuleInterop": true,
-    "allowSyntheticDefaultImports": true,
-    "strict": true,
-    "forceConsistentCasingInFileNames": true,
-    "module": "esnext",
-    "moduleResolution": "node",
-    "resolveJsonModule": true,
+    "lib": ["DOM", "DOM.Iterable"],
+    "module": "es6",
+    "allowJs": false,
+    "declaration": true,
+    "emitDeclarationOnly": true,
     "isolatedModules": true,
-    "noEmit": true
+    "moduleResolution": "node"
   },
   "exclude": ["**/node_modules/**/*", "**/dist/**/*"]
 }

@@ -1,30 +1,38 @@
+interface GetParamsObject {
+  [key: string]: string | string[]
+}
+
 interface ErrorHandlers {
-  errorHandler?: (response: Response) => void
-  handler401?: () => void
-  handler403?: () => void
+  handlerError?: (response?: Response) => void
+  handler401?: (response?: Response) => void
+  handler403?: (response?: Response) => void
 }
 
 export interface FetchlerOptions extends ErrorHandlers {
+  baseUrl?: string
+  token?: string
+  tokenType?: string
   customHeaders?: Headers
+  defaultInitOptions?: RequestInit
 }
 
 export default class Fetchler {
-  headers: Headers
-  token: string | null = null
-  customHeaderName?: string
   errorHandlers: ErrorHandlers
+  headers: Headers
+  token?: string
+  customHeaderName?: string
+  defaultInitOpts?: RequestInit
+  baseUrl: string
 
-  constructor(
-    token: string | null = null,
-    tokenType: string = 'Bearer',
-    opts: FetchlerOptions
-  ) {
+  constructor(opts: FetchlerOptions) {
+    this.baseUrl = opts.baseUrl ?? ''
+
     this.headers = new Headers()
 
-    if (token) {
-      this.tokenSetter(token, tokenType)
+    if (opts.token) {
+      this.tokenSetter(opts.token, opts.tokenType)
 
-      this.headers.set('Authorization', token)
+      this.headers.set('Authorization', opts.token)
     }
 
     if (opts.customHeaders) {
@@ -33,10 +41,14 @@ export default class Fetchler {
       }
     }
 
+    if (opts.defaultInitOptions) {
+      this.defaultInitOpts = opts.defaultInitOptions
+    }
+
     this.errorHandlers = {}
 
-    if (opts.errorHandler) {
-      this.errorHandlers.errorHandler = opts.errorHandler
+    if (opts.handlerError) {
+      this.errorHandlers.handlerError = opts.handlerError
     }
 
     if (opts.handler401) {
@@ -53,24 +65,61 @@ export default class Fetchler {
       tokenType && tokenType.length > 0 ? `${tokenType} ${token}` : token
   }
 
-  private async fetchIt(url: string, init: RequestInit) {
-    return fetch(url, init).then((res) => {
-      if (!res.ok) {
-        if (res.status === 401 && this.errorHandlers.handler401) {
-          return this.errorHandlers.handler401()
-        } else if (res.status === 403 && this.errorHandlers.handler403) {
-          return this.errorHandlers.handler403()
-        } else if (this.errorHandlers.errorHandler) {
-          return this.errorHandlers.errorHandler(res)
-        } else {
-          throw new Error(`Error in fetch request: ${res.status}`)
-        }
-      }
+  private async fetchIt(url: string, init: RequestInit, disableAuth: boolean) {
+    const headersClone = new Headers(this.headers)
 
-      if (res.status === 204) {
-        return
+    if (disableAuth && headersClone.has('Authorization')) {
+      headersClone.delete('Authorization')
+    }
+
+    const headers = new Headers(headersClone)
+
+    if (!!init.headers) {
+      const initHeaders = new Headers(init.headers)
+
+      for (const [key, val] of initHeaders.entries()) {
+        headers.append(key, val)
       }
-    })
+    }
+
+    if (
+      !headers.has('Content-Type') &&
+      init.method !== 'GET' &&
+      init.method !== 'HEAD'
+    ) {
+      headersClone.set(
+        'Content-Type',
+        init.body instanceof FormData
+          ? 'multipart/form-data'
+          : 'application/json'
+      )
+    }
+
+    const res = await fetch(url, { ...init, headers })
+
+    if (!res.ok) {
+      if (res.status === 401 && this.errorHandlers.handler401) {
+        return this.errorHandlers.handler401(res)
+      } else if (res.status === 403 && this.errorHandlers.handler403) {
+        return this.errorHandlers.handler403(res)
+      } else if (this.errorHandlers.handlerError) {
+        return this.errorHandlers.handlerError(res)
+      } else {
+        throw new Error(`Fetch Error: ${res.status}`)
+      }
+    }
+
+    if (res.status === 204) {
+      return true
+    }
+
+    if (res.headers.get('Content-Type')?.includes('json')) {
+      return res.json()
+    } else if (res.headers.get('Content-Type')?.includes('text')) {
+      return res.text()
+    } else {
+      return res
+    }
   }
 
   updateToken(token: string, tokenType?: string) {
@@ -84,17 +133,144 @@ export default class Fetchler {
     }
   }
 
-  get(url: string, params: object | string, init?: RequestInit) {}
-
-  head(url: string, params: object | string, init?: RequestInit) {}
-
-  post(url: string, params: object | string, init?: RequestInit) {}
-
-  put(url: string, params: object | string, init?: RequestInit) {}
-
-  del(url: string, params: object | string, init?: RequestInit) {
-    return this.delete(url, params, init)
+  updateHeader(key: string, value: string) {
+    this.headers.set(key, value)
   }
 
-  delete(url: string, params: object | string, init?: RequestInit) {}
+  removeHeader(key: string) {
+    this.headers.delete(key)
+  }
+
+  updateDefaultHandler(
+    type: '401' | 401 | '403' | 403 | 'error',
+    handler: (res?: Response) => void
+  ) {
+    const key: 'handler401' | 'handler403' | 'handlerError' =
+      type === 'error'
+        ? 'handlerError'
+        : (`handler${type}` as 'handler401' | 'handler403')
+
+    this.errorHandlers[key] = handler
+  }
+
+  get(
+    url: string,
+    params: GetParamsObject | string = '',
+    init: RequestInit = {},
+    disableAuth?: boolean
+  ) {
+    let fetchUrl = null
+
+    if (params === '') {
+      fetchUrl = `${url}`
+    } else if (typeof params === 'string') {
+      fetchUrl = params.startsWith('?')
+        ? `${fetchUrl}${params}`
+        : `${fetchUrl}?${params}`
+    } else {
+      const paramArr: string[] = Object.entries(params).map(([key, val]) =>
+        Array.isArray(val) ? `${key}=${val.join(',')}` : `${key}=${val}`
+      )
+
+      fetchUrl = `${url}?${paramArr.join('&')}`
+    }
+
+    return this.fetchIt(
+      fetchUrl,
+      { ...this.defaultInitOpts, ...init, method: 'GET' },
+      !!disableAuth
+    )
+  }
+
+  head(
+    url: string,
+    params: GetParamsObject | string,
+    init?: RequestInit,
+    disableAuth?: boolean
+  ) {
+    let fetchUrl = null
+
+    if (params === '') {
+      fetchUrl = `${url}`
+    } else if (typeof params === 'string') {
+      fetchUrl = params.startsWith('?')
+        ? `${fetchUrl}${params}`
+        : `${fetchUrl}?${params}`
+    } else {
+      const paramArr: string[] = Object.entries(params).map(([key, val]) =>
+        Array.isArray(val) ? `${key}=${val.join(',')}` : `${key}=${val}`
+      )
+
+      fetchUrl = `${url}?${paramArr.join('&')}`
+    }
+
+    return this.fetchIt(
+      url,
+      { ...this.defaultInitOpts, ...init, method: 'HEAD' },
+      !!disableAuth
+    )
+  }
+
+  post(
+    url: string,
+    params: object | string | FormData,
+    init?: RequestInit,
+    disableAuth?: boolean
+  ) {
+    const body =
+      typeof params === 'object' && !(params instanceof FormData)
+        ? JSON.stringify(params)
+        : params
+
+    return this.fetchIt(
+      url,
+      { ...this.defaultInitOpts, ...init, method: 'POST', body },
+      !!disableAuth
+    )
+  }
+
+  put(
+    url: string,
+    params: object | string | FormData,
+    init?: RequestInit,
+    disableAuth?: boolean
+  ) {
+    const body =
+      typeof params === 'object' && !(params instanceof FormData)
+        ? JSON.stringify(params)
+        : params
+
+    return this.fetchIt(
+      url,
+      { ...this.defaultInitOpts, ...init, method: 'PUT', body },
+      !!disableAuth
+    )
+  }
+
+  del(
+    url: string,
+    params?: object | string | FormData,
+    init?: RequestInit,
+    disableAuth?: boolean
+  ) {
+    return this.delete(url, params, init, disableAuth)
+  }
+
+  delete(
+    url: string,
+    params?: object | string | FormData,
+    init?: RequestInit,
+    disableAuth?: boolean
+  ) {
+    const body =
+      typeof params === 'object' && !(params instanceof FormData)
+        ? JSON.stringify(params)
+        : params
+
+    return this.fetchIt(
+      url,
+      { ...this.defaultInitOpts, ...init, method: 'DELETE', body },
+      !!disableAuth
+    )
+  }
 }

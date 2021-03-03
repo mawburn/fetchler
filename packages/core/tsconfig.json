@@ -1,8 +1,7 @@
 {
   "extends": "../../tsconfig.json",
   "compilerOptions": {
-    "outDir": "./dist",
-    "isolatedModules": true
+    "outDir": "./dist"
   },
   "files": ["src/index.ts"]
 }
