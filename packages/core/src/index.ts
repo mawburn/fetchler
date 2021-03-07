@@ -16,6 +16,8 @@ export interface FetchlerOptions extends ErrorHandlers {
   defaultInitOptions?: RequestInit
 }
 
+export type FetchlerResponse = Response | string | boolean | object
+
 export default class Fetchler {
   errorHandlers: ErrorHandlers
   headers: Headers
@@ -70,7 +72,11 @@ export default class Fetchler {
     this.headers.set('Authorization', authStr)
   }
 
-  private async fetchIt(url: string, init: RequestInit, disableAuth: boolean) {
+  private async fetchIt<T extends FetchlerResponse>(
+    url: string,
+    init: RequestInit,
+    disableAuth: boolean
+  ): Promise<T> {
     const headersClone = new Headers(this.headers)
 
     if (disableAuth && headersClone.has('Authorization')) {
@@ -92,7 +98,7 @@ export default class Fetchler {
       init.method !== 'GET' &&
       init.method !== 'HEAD'
     ) {
-      headersClone.set(
+      headers.set(
         'Content-Type',
         init.body instanceof FormData
           ? 'multipart/form-data'
@@ -104,26 +110,29 @@ export default class Fetchler {
 
     if (!res.ok) {
       if (res.status === 401 && this.errorHandlers.handler401) {
-        return this.errorHandlers.handler401(res)
+        this.errorHandlers.handler401(res)
+        return
       } else if (res.status === 403 && this.errorHandlers.handler403) {
-        return this.errorHandlers.handler403(res)
+        this.errorHandlers.handler403(res)
+        return
       } else if (this.errorHandlers.handlerError) {
-        return this.errorHandlers.handlerError(res)
+        this.errorHandlers.handlerError(res)
+        return
       } else {
         throw new Error(`Fetch Error: ${res.status}`)
       }
     }
 
     if (res.status === 204) {
-      return true
+      return true as T
     }
 
     if (res.headers.get('Content-Type')?.includes('json')) {
-      return res.json()
+      return res.json() as Promise<T>
     } else if (res.headers.get('Content-Type')?.includes('text')) {
-      return res.text()
+      return res.text() as Promise<T>
     } else {
-      return res
+      return res as T
     }
   }
 
@@ -171,7 +180,7 @@ export default class Fetchler {
     this.errorHandlers[key] = handler
   }
 
-  get(
+  get<T extends FetchlerResponse>(
     url: string,
     params: GetParamsObject | string = '',
     init: RequestInit = {},
@@ -193,7 +202,7 @@ export default class Fetchler {
       fetchUrl = `${url}?${paramArr.join('&')}`
     }
 
-    return this.fetchIt(
+    return this.fetchIt<T>(
       fetchUrl,
       { ...this.defaultInitOpts, ...init, method: 'GET' },
       !!disableAuth
@@ -222,14 +231,14 @@ export default class Fetchler {
       fetchUrl = `${url}?${paramArr.join('&')}`
     }
 
-    return this.fetchIt(
+    return this.fetchIt<boolean>(
       url,
       { ...this.defaultInitOpts, ...init, method: 'HEAD' },
       !!disableAuth
     )
   }
 
-  post(
+  post<T extends FetchlerResponse>(
     url: string,
     params: object | string | FormData,
     init?: RequestInit,
@@ -240,14 +249,14 @@ export default class Fetchler {
         ? JSON.stringify(params)
         : params
 
-    return this.fetchIt(
+    return this.fetchIt<T>(
       url,
       { ...this.defaultInitOpts, ...init, method: 'POST', body },
       !!disableAuth
     )
   }
 
-  put(
+  put<T extends FetchlerResponse>(
     url: string,
     params: object | string | FormData,
     init?: RequestInit,
@@ -258,23 +267,23 @@ export default class Fetchler {
         ? JSON.stringify(params)
         : params
 
-    return this.fetchIt(
+    return this.fetchIt<T>(
       url,
       { ...this.defaultInitOpts, ...init, method: 'PUT', body },
       !!disableAuth
     )
   }
 
-  del(
+  del<T extends FetchlerResponse>(
     url: string,
     params?: object | string | FormData,
     init?: RequestInit,
     disableAuth?: boolean
   ) {
-    return this.delete(url, params, init, disableAuth)
+    return this.delete<T>(url, params, init, disableAuth)
   }
 
-  delete(
+  delete<T extends FetchlerResponse>(
     url: string,
     params?: object | string | FormData,
     init?: RequestInit,
@@ -285,7 +294,7 @@ export default class Fetchler {
         ? JSON.stringify(params)
         : params
 
-    return this.fetchIt(
+    return this.fetchIt<T>(
       url,
       { ...this.defaultInitOpts, ...init, method: 'DELETE', body },
       !!disableAuth
