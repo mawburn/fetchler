@@ -59,7 +59,7 @@ export default class Fetchler {
     }
   }
 
-  private tokenSetter(token: string | null, tokenType?: string) {
+  private tokenSetter(token: string | null, tokenType: string = 'Bearer') {
     if (token === null) {
       this.headers.delete('Authorization')
     }
