@@ -1,6 +1,6 @@
 {
   "name": "fetchler",
-  "version": "0.0.17",
+  "version": "0.0.18",
   "description": "Frontend Fetch wrapper in TypeScript",
   "main": "dist/bundle.js",
   "typings": "dist/index.d.ts",
