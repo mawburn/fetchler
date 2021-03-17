@@ -32,8 +32,6 @@ export default class Fetchler {
 
     if (opts.token) {
       this.tokenSetter(opts.token, opts.tokenType)
-
-      this.headers.set('Authorization', opts.token)
     }
 
     if (opts.customHeaders) {
